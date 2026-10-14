@@ -10,5 +10,3 @@ daymark.db
 *.sqlite3
 node_modules/
 dist/
-
-dlp.db

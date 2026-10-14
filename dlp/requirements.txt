@@ -1,2 +1,0 @@
--r ../daymark/requirements.txt
-python-multipart>=0.0.20,<1
