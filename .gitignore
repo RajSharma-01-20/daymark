@@ -1,0 +1,12 @@
+.venv/
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+idp/keys/
+idp/instance/
+daymark.db
+*.sqlite
+*.sqlite3
+node_modules/
+dist/
