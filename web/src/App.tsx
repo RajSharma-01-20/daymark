@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import DlpApp from './DlpApp';
 
 const API = import.meta.env.VITE_DAYMARK_URL ?? 'http://localhost:8101';
 
@@ -242,7 +243,7 @@ function Daymark() {
       </aside>
 
       <main className="main-panel">
-        <header className="app-header"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => document.body.classList.add('nav-open')}>☰</button><div className="breadcrumb"><span>MY DAYMARK</span><b>/</b><strong>{viewTitle}</strong></div><div className="header-actions"><label className="search-box"><span>⌕</span><input ref={searchRef} aria-label="Search tasks" placeholder="Search tasks…" value={search} onChange={event => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label><button className="icon-button settings-mobile" aria-label="Preferences" onClick={() => setSettingsOpen(true)}>⚙</button></div></header>
+        <header className="app-header"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => document.body.classList.add('nav-open')}>☰</button><div className="breadcrumb"><span>MY DAYMARK</span><b>/</b><strong>{viewTitle}</strong></div><div className="header-actions"><a className="suite-switcher" href="/dlp"><span>c</span> Clearline <b>↗</b></a><label className="search-box"><span>⌕</span><input ref={searchRef} aria-label="Search tasks" placeholder="Search tasks…" value={search} onChange={event => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label><button className="icon-button settings-mobile" aria-label="Preferences" onClick={() => setSettingsOpen(true)}>⚙</button></div></header>
         <section className="content-area">
           <div className="view-heading"><div><p className="view-eyebrow">{activeView === 'today' && activeProject === null ? 'A FRESH PAGE' : 'YOUR TASKS'}</p><h1>{viewTitle}<span className="title-count">{tasks.length}</span></h1><p className="view-subtitle">{subtitle}</p></div><button className="primary-button add-task-top" onClick={() => { setEditing(null); setEditorOpen(true); }}>＋ <span>Add task</span></button></div>
           <form className="quick-add" onSubmit={quickAdd}><span className="quick-plus">＋</span><input ref={quickAddRef} value={quickTitle} onChange={event => setQuickTitle(event.target.value)} placeholder="Add a task to your inbox…" aria-label="Quick add task" /><button disabled={busy || !quickTitle.trim()} type="submit">Add task <span>↵</span></button></form>
@@ -271,5 +272,19 @@ function Daymark() {
 
 export default function App() {
   if (window.location.pathname === '/app' || window.location.pathname === '/app/') return <Daymark />;
-  return <main className="launch-page"><div className="launch-card"><a className="wordmark" href="/app"><span className="brand-mark">d</span> daymark</a><p className="eyebrow">YOUR PERSONAL TASK SPACE</p><h1>Make room for<br/><em>what matters.</em></h1><p>Gather the small things, make a plan that feels right, and do the next one.</p><a className="primary-button" href="/app">Open Daymark <span>↗</span></a><div className="launch-foot">ONE LOGIN · YOUR TASKS · YOUR PACE</div></div><div className="launch-art"><span className="launch-orbit orbit-1"/><span className="launch-orbit orbit-2"/><span className="launch-orbit orbit-3"/><div className="launch-sticky"><span>today's note</span><strong>start somewhere<br/>small.</strong><i>one thing at a time</i></div></div></main>;
+  if (window.location.pathname === '/dlp' || window.location.pathname === '/dlp/') return <DlpApp />;
+  return <main className="launch-page suite-launch">
+    <div className="launch-card suite-launch-card">
+      <a className="wordmark" href="/"><span className="brand-mark">d</span> your workspace</a>
+      <p className="eyebrow">ONE MINI SSO · TWO PRACTICAL TOOLS</p>
+      <h1>A little more room<br/><em>to work well.</em></h1>
+      <p>Plan your day with Daymark. Check sensitive content with Clearline before it leaves your workspace.</p>
+      <div className="suite-grid">
+        <a className="suite-tile suite-daymark" href="/app"><span className="suite-icon">d</span><span><small>PERSONAL TASK MANAGER</small><strong>Daymark</strong><i>Make room for what matters.</i></span><b>↗</b></a>
+        <a className="suite-tile suite-clearline" href="/dlp"><span className="suite-icon">c</span><span><small>DATA LOSS PREVENTION</small><strong>Clearline</strong><i>Check, redact, and share safely.</i></span><b>↗</b></a>
+      </div>
+      <div className="launch-foot">ONE SIGN-IN · SEPARATE APP SESSIONS</div>
+    </div>
+    <div className="launch-art suite-art"><span className="launch-orbit orbit-1"/><span className="launch-orbit orbit-2"/><span className="launch-orbit orbit-3"/><div className="launch-sticky"><span>workspace note</span><strong>take care<br/>with the details.</strong><i>plan · protect · proceed</i></div></div>
+  </main>;
 }

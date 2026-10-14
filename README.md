@@ -1,116 +1,112 @@
-# Mini SSO + Daymark
+# Mini SSO, Daymark, and Clearline
 
-An educational full-stack project: a separate OpenID Connect Identity Provider signs a user into **Daymark**, a personal task manager. Daymark never asks for or stores the user's password. The DLP Scanner is a possible future second client; it is not built yet.
+A learning portfolio project with one OpenID Connect identity provider and two separate full-stack clients:
 
-## Sign-in flow
+- **Daymark** is a personal task manager.
+- **Clearline** is a rule-based Data Loss Prevention (DLP) scanner for pasted text and small text documents.
 
-```mermaid
-sequenceDiagram
-  actor User
-  participant UI as Daymark UI
-  participant App as Daymark API
-  participant IdP as Mini SSO Identity Provider
-  participant DB as PostgreSQL
-  User->>UI: Open Daymark and choose sign in
-  UI->>App: Begin OIDC login
-  App->>IdP: Authorization request with state and nonce
-  IdP->>User: Sign in and review Daymark consent
-  User->>IdP: Approve
-  IdP->>App: One-time authorization code
-  App->>IdP: Exchange code on the backend
-  IdP-->>App: Tokens and signed identity claims
-  App-->>UI: Daymark session
-  UI->>App: Create and manage tasks
-  App->>DB: Store tasks under the OIDC subject
-```
+The Mini SSO provider handles login and consent. Each client has its own callback, client secret, and session cookie. Neither client handles the user's Mini SSO password.
 
 ## Stack
 
-- Mini SSO Identity Provider: Flask, Authlib, PostgreSQL.
-- Daymark client API: FastAPI, Authlib, SQLAlchemy, PostgreSQL (or SQLite for local fallback).
-- Daymark UI: React, TypeScript, Vite, responsive CSS.
+- Identity Provider: Flask, Authlib, SQLAlchemy, PostgreSQL or SQLite.
+- Daymark API: FastAPI, Authlib, SQLAlchemy, PostgreSQL or SQLite.
+- Clearline API: FastAPI, Authlib, SQLAlchemy, PostgreSQL or SQLite.
+- User interface: React, TypeScript, Vite, responsive CSS.
+
+## Clearline scan behavior
+
+Employees can paste text or submit UTF-8 TXT, Markdown, and CSV files up to 100 KB. The scanner checks for likely payment card numbers (with a Luhn check), Aadhaar-style 12-digit numbers, email addresses, Indian mobile numbers, and password/API-secret assignments.
+
+When a pattern is found, Clearline replaces the matched value with a typed marker such as [REDACTED:EMAIL]. The employee can review, copy, or download the cleaned result. This demo does not forward content to another service.
+
+**Submitted text and files are scanned in memory and are not retained.** The audit table stores only the employee name, source type, timestamp, action, and finding counts/categories. It does not store file names, submitted text, matched values, or network addresses.
+
+The audit view is protected by the DLP API. Set DLP_ADMIN_SUBJECTS in the private .env to a comma-separated list of Mini SSO subject IDs. Sign in to Clearline and read the subject value from http://localhost:8102/api/me; then set the ID and restart the Clearline API. No account is an administrator by default.
+
+Regex scanning is a small demonstration. It can miss sensitive data and can flag ordinary content. A “clear” result is not a guarantee that the content is safe. PDF and Office file parsing, background job queues, configurable policies, retention controls, and production-grade audit controls are not included.
 
 ## Run locally (PowerShell)
 
-From the project root, copy the example configuration and replace placeholder secrets:
+From the project root, prepare local configuration:
 
-```powershell
-Copy-Item .env.example .env
-Copy-Item web/.env.example web/.env
-```
+<pre><code>Copy-Item .env.example .env
+Copy-Item web/.env.example web/.env</code></pre>
 
-Start PostgreSQL if Docker Desktop is available, then prepare Python and JavaScript dependencies:
+Replace the example secrets in .env with unique random values. Keep .env private. Start PostgreSQL if Docker Desktop is available:
 
-```powershell
-docker compose up -d db
+<pre><code>docker compose up -d db
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 py -m pip install -r idp\requirements.txt
 py -m pip install -r daymark\requirements.txt
+py -m pip install -r dlp\requirements.txt
 Set-Location web
 npm install
-Set-Location ..
-```
+Set-Location ..</code></pre>
 
-If Docker is unavailable, edit `.env` to use SQLite for both services:
+If Docker is unavailable, set DATABASE_URL in .env to sqlite:///minisso-local.db. Leave DLP_DATABASE_URL blank so Clearline uses the same configured database. Daymark can use its local SQLite database with DAYMARK_DATABASE_URL=sqlite:///./daymark.db.
 
-```text
-DATABASE_URL=sqlite:///minisso-local.db
-DAYMARK_DATABASE_URL=sqlite:///./daymark.db
-```
+Open four PowerShell terminals from the project root.
 
-Open three PowerShell terminals from the project root.
+**Terminal 1 — Mini SSO**
 
-**Terminal 1 — Identity Provider**
-
-```powershell
-Set-Location idp
+<pre><code>Set-Location idp
 ..\.venv\Scripts\Activate.ps1
 flask --app app initdb
-flask --app app run --port 5002
-```
+flask --app app run --port 5002</code></pre>
+
+The initdb command creates or updates both OAuth clients: Daymark and Clearline DLP. Run it again after changing client IDs, secrets, or callback URLs.
 
 **Terminal 2 — Daymark API**
 
-```powershell
-.\.venv\Scripts\Activate.ps1
-uvicorn main:app --app-dir daymark --reload --port 8101 --env-file .env
-```
+<pre><code>.\.venv\Scripts\Activate.ps1
+uvicorn main:app --app-dir daymark --reload --port 8101 --env-file .env</code></pre>
 
-**Terminal 3 — Daymark UI**
+**Terminal 3 — Clearline DLP API**
 
-```powershell
-Set-Location web
-npm run dev -- --port 5174 --strictPort
-```
+<pre><code>.\.venv\Scripts\Activate.ps1
+uvicorn main:app --app-dir dlp --reload --port 8102 --env-file .env</code></pre>
 
-Open [http://localhost:5174](http://localhost:5174), choose **Open Daymark**, then register a disposable demo account at Mini SSO.
+**Terminal 4 — React app**
 
-The local ports are set to 5002, 8101, and 5174 to avoid conflicts with older demo processes. If you change them, keep the Identity Provider issuer, Daymark URL, registered callback, logout redirect, and frontend API URL in sync before running `flask initdb`.
+<pre><code>Set-Location web
+npm run dev -- --port 5174 --strictPort</code></pre>
+
+Open http://localhost:5174 to choose Daymark or Clearline. Both use Mini SSO and consent.
+
+The local ports are 5002 (Mini SSO), 8101 (Daymark API), 8102 (Clearline API), and 5174 (UI). If you change them, update the matching issuer, callback, logout redirect, and frontend URL in .env, then rerun flask initdb.
 
 ## Daymark features
 
 - Inbox, Today, Upcoming, All Tasks, and Completed views.
-- Quick-add tasks and a full task editor with notes, priorities, start/due dates, projects, and user-defined tags.
-- Create projects with a chosen accent color.
-- Search, priority filter, task completion/reopening, edit, and delete.
-- Preferences for light/dark appearance, comfortable/compact density, week start, and date format.
-- Authenticated task and project data is scoped to the stable OIDC subject. The API checks ownership on each operation.
+- Quick-add and full task editor with notes, priority, dates, projects, and tags.
+- Search, task completion/reopening, edit, and delete.
+- Preferences for theme, density, week start, and date format.
+- Tasks and projects are scoped to the authenticated OIDC subject.
 
-## Security choices and limitations
+## Clearline features
 
-- Authlib handles OIDC state/nonce and the backend authorization-code exchange for the Daymark client.
-- The Identity Provider requires exact callback registration. Daymark's client secret remains backend-only.
-- Task write requests require a session-bound CSRF token. The CORS allowlist is restricted to the configured UI origin.
-- Session cookies are HttpOnly and SameSite=Lax; enable Secure when using HTTPS.
-- SQLite is only a convenient local fallback. Use PostgreSQL for a shared deployment.
-- This project is for learning with disposable test accounts. It is not production-ready identity or task software. It still needs an independent security review, database migrations, robust key rotation, operational monitoring, tested backups, rate limits, and production deployment configuration.
-- Recurring tasks, reminders, native calendar integration, file attachments, collaboration, and the DLP Scanner are future work, not current features.
+- Paste text or scan a small TXT, Markdown, or CSV file.
+- Asynchronous request handling keeps the FastAPI event loop responsive while text is scanned.
+- Automatic in-memory redaction and a cleaned preview.
+- Copy or download the cleaned text for review.
+- Admin-only audit dashboard with counts and categories, without content retention.
+- Separate OIDC client and signed-in session from Daymark.
+
+## Security notes and limitations
+
+- Authlib handles the OIDC state/nonce and server-side authorization-code exchange.
+- Client secrets remain in backend configuration; callbacks are registered exactly in Mini SSO.
+- Write requests require session-bound CSRF tokens. Session cookies are HttpOnly and SameSite=Lax.
+- The scanner uses patterns and the Luhn checksum; it is not an ML classifier, endpoint protection, or a production DLP boundary.
+- Use HTTPS and secure cookies outside local development. Use disposable test accounts and synthetic sample data.
+- Production readiness would require independent security review, stronger authorization administration, database migrations, rate limits, key rotation, monitoring, backups, and tested retention policies.
 
 ## Tests
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-```
+Run the existing project checks with:
 
-The tests cover Identity Provider behavior, Daymark task CRUD, date validation, authentication requirements, and isolation between OIDC users.
+<pre><code>.\.venv\Scripts\python.exe -m pytest -q</code></pre>
+
+The current tests cover Mini SSO behavior, Daymark CRUD, authentication requirements, date validation, and user data isolation.
